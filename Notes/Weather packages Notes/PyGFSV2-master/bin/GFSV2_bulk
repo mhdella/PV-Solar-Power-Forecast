@@ -1,0 +1,83 @@
+#!/usr/bin/python
+# -------------------------------------------------------------------
+# - NAME:        GFSV2_bulk
+# - AUTHOR:      Reto Stauffer
+# - DATE:        2017-08-04
+# -------------------------------------------------------------------
+# - DESCRIPTION: Python executable for bulk downloads. This one
+#                requires one single input which is the path to
+#                a valid config file. Downloads sets of data as
+#                specified in the config file.
+#
+#                The second executable (GFSV2_get) is to download
+#                small manually defined subsets only.
+# -------------------------------------------------------------------
+# - EDITORIAL:   2017-08-04, RS: Created file on thinkreto.
+# -------------------------------------------------------------------
+# - L@ST MODIFIED: 2017-08-05 12:19 on thinkreto
+# -------------------------------------------------------------------
+
+import logging
+logging.basicConfig(format="# %(levelname)s %(message)s",level=logging.DEBUG)
+log = logging.getLogger()
+
+# -------------------------------------------------------------------
+# Main part of the script
+# -------------------------------------------------------------------
+if __name__ == "__main__":
+
+   # ----------------------------------------------------------------
+   # Requires one single input argument
+   # ----------------------------------------------------------------
+   import argparse, sys, os
+   helptext = """
+   This is the python package for downloading GFS reforecast V2 grib
+   file data from the NOAA CDC data server. This script is used to
+   download pre-specified sets of data wherefore a config file has
+   to be given!"""
+
+   parser = argparse.ArgumentParser(description=helptext)
+   parser.add_argument("-c","--config", default=None,
+         help="String, config file which has to be read.")
+   args = parser.parse_args()
+   if args.config is None:
+      parser.print_help(); sys.exit(1)
+   else:
+      if not os.path.isfile( args.config ):
+         log.error("Sorry, cannot find file \"{:s}\". Please check if file exists.")
+         sys.exit(1)
+   
+
+   # ----------------------------------------------------------------
+   # Read config file now
+   # ----------------------------------------------------------------
+   import datetime as dt
+   from GFSV2 import *
+
+   # Read confg file
+   config = readConfig( args.config )
+
+   # Looping over dates
+   skipped = 0
+   loopdate = config.main_from
+   while loopdate <= config.main_to:
+
+      # Check whether we have to download this file or not
+      loopdate_mon = int(loopdate.strftime("%m"))
+      if not config.main_only is None:
+         if not loopdate_mon == config.main_only:
+            # Increase loopdate and continue
+            loopdate = loopdate + dt.timedelta(1)
+            skipped += 1
+            continue
+
+      # Proccessing
+      log.info("Processing date {:s}".format(loopdate.strftime("%Y-%m-%d %HZ")))
+
+      download( config, loopdate )
+
+      # Increase date
+      loopdate = loopdate + dt.timedelta(1)
+
+   if skipped > 0:
+      log.info("\"{0:d}\" files skipped as not in month {1:d} as specified in config file ([main] only).".format(skipped,config.main_only))
